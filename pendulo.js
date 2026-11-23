@@ -14,37 +14,47 @@
  *  Aqui comparamos os dois:
  *    - pêndulo real (azul): calculado passo a passo pelo computador
  *    - pêndulo MHS (laranja, tracejado): fórmula com cosseno
+ *
+ *  Quando você muda os controles, o movimento NÃO recomeça: os dois
+ *  pêndulos continuam de onde estavam, já com os novos valores.
  */
 
-const G = 9.81;   // aceleração da gravidade (m/s²)
+const G = 9.81;            // aceleração da gravidade (m/s²)
+const PASSO = 0.001;       // passo da simulação real, em segundos
+const JANELA_GRAFICO = 8;  // o gráfico mostra os últimos 8 segundos
 
-// Estado da seção
-let anguloInicial = 0;        // θ0 em radianos
-let comprimento = 1;          // L em metros
-let omegaPendulo = 0;         // ω = √(g/L)
-let periodoMHS = 0;           // T pela fórmula do MHS
-let periodoReal = 0;          // T medido na simulação real
-let tempoPendulo = 0;         // relógio desta seção
-let duracaoPendulo = 0;       // quanto tempo o gráfico mostra
+// Parâmetros escolhidos nos controles
+let anguloInicial = grausParaRadianos(10);   // θ0, em radianos
+let comprimento = 1;                         // L, em metros
 
-// A simulação real é guardada numa lista: um ângulo a cada PASSO segundos
-const PASSO = 0.001;
-let angulosReais = [];
+// Estado do pêndulo real: ângulo e velocidade angular
+let thetaReal = anguloInicial;
+let velocidadeAngularReal = 0;
+
+// Estado do pêndulo MHS. Em vez de usar θ0·cos(ω·t) direto, guardamos o
+// ângulo de dentro do cosseno ("faseMHS") e somamos ω·Δt a cada quadro.
+// Assim, se ω mudar, a curva continua sem dar saltos.
+let faseMHS = 0;
+
+// Relógio desta seção e histórico de pontos para o gráfico
+let tempoPendulo = 0;
+let historico = [];   // lista de { t, real, mhs } (ângulos em radianos)
 
 const penduloRodando = criarBotaoPausa("pPlay");
 
 
-/* ---------- A física ---------- */
+/* =====================================================================
+ *  A FÍSICA
+ * ===================================================================== */
 
-// Ângulo do pêndulo MHS: θ(t) = θ0 · cos(ω·t)
-function anguloMHS(t) {
-  return anguloInicial * Math.cos(omegaPendulo * t);
+// ω do MHS: √(g / L)
+function omegaDoPendulo() {
+  return Math.sqrt(G / comprimento);
 }
 
-// Ângulo do pêndulo real: procuramos na lista calculada
-function anguloReal(t) {
-  const indice = Math.min(Math.round(t / PASSO), angulosReais.length - 1);
-  return angulosReais[indice];
+// Ângulo do pêndulo MHS: θ0 · cos(fase)
+function anguloMHS() {
+  return anguloInicial * Math.cos(faseMHS);
 }
 
 // Aceleração angular real: −(g/L) · sen θ
@@ -52,62 +62,66 @@ function aceleracaoAngular(theta) {
   return -(G / comprimento) * Math.sin(theta);
 }
 
-// Calcula o pêndulo real passo a passo (método de Runge-Kutta de 4ª ordem).
-// A cada passo pequeno, estimamos como o ângulo e a velocidade angular
-// mudam, usando a aceleração −(g/L)·sen θ.
-function simularPenduloReal() {
-  angulosReais = [];
-  let theta = anguloInicial;   // começa no ângulo inicial...
-  let w = 0;                   // ...e parado
-  periodoReal = 0;
+// Avança um pêndulo real por um passo pequeno (método de Runge-Kutta de
+// 4ª ordem). Recebe o ângulo e a velocidade angular de agora e devolve
+// os valores depois do passo.
+function passoRungeKutta(theta, w, dt) {
+  // Quatro estimativas de como θ e w mudam, combinadas numa média ponderada
+  const k1theta = w;
+  const k1w = aceleracaoAngular(theta);
+  const k2theta = w + (dt / 2) * k1w;
+  const k2w = aceleracaoAngular(theta + (dt / 2) * k1theta);
+  const k3theta = w + (dt / 2) * k2w;
+  const k3w = aceleracaoAngular(theta + (dt / 2) * k2theta);
+  const k4theta = w + dt * k3w;
+  const k4w = aceleracaoAngular(theta + dt * k3theta);
 
-  const numeroDePassos = Math.ceil(duracaoPendulo / PASSO) + 1;
-  for (let i = 0; i < numeroDePassos; i++) {
-    angulosReais.push(theta);
+  return {
+    theta: theta + (dt / 6) * (k1theta + 2 * k2theta + 2 * k3theta + k4theta),
+    w: w + (dt / 6) * (k1w + 2 * k2w + 2 * k3w + k4w),
+  };
+}
 
-    // Quatro estimativas da inclinação, combinadas numa média ponderada
-    const k1theta = w;
-    const k1w = aceleracaoAngular(theta);
-    const k2theta = w + (PASSO / 2) * k1w;
-    const k2w = aceleracaoAngular(theta + (PASSO / 2) * k1theta);
-    const k3theta = w + (PASSO / 2) * k2w;
-    const k3w = aceleracaoAngular(theta + (PASSO / 2) * k2theta);
-    const k4theta = w + PASSO * k3w;
-    const k4w = aceleracaoAngular(theta + PASSO * k3theta);
-
-    const wAnterior = w;
-    theta += (PASSO / 6) * (k1theta + 2 * k2theta + 2 * k3theta + k4theta);
-    w += (PASSO / 6) * (k1w + 2 * k2w + 2 * k3w + k4w);
-
-    // Medindo o período: o pêndulo sai parado do lado direito. Quando a
-    // velocidade volta a zero pela primeira vez, ele está parado do lado
-    // esquerdo: passou meio período.
-    if (periodoReal === 0 && i > 0 && wAnterior < 0 && w >= 0) {
-      periodoReal = 2 * (i + 1) * PASSO;
+// Mede o período real: soltamos um pêndulo de teste parado em θ0 e
+// simulamos até ele parar do outro lado (velocidade volta a zero).
+// Esse tempo é meio período.
+function medirPeriodoReal() {
+  let theta = anguloInicial;
+  let w = 0;
+  let t = 0;
+  while (true) {
+    const novo = passoRungeKutta(theta, w, PASSO);
+    t += PASSO;
+    if (w < 0 && novo.w >= 0) {   // a velocidade trocou de sinal: parou
+      return 2 * t;
     }
+    theta = novo.theta;
+    w = novo.w;
   }
 }
 
 
-/* ---------- Controles ---------- */
+/* =====================================================================
+ *  CONTROLES
+ * ===================================================================== */
 
 function lerPendulo() {
   const graus = lerControle("pTheta");
-  anguloInicial = grausParaRadianos(graus);
+  const novoAngulo = grausParaRadianos(graus);
+
+  // Se o ângulo inicial mudou, mudamos o tamanho do balanço do pêndulo
+  // real na mesma proporção, sem reiniciar o movimento.
+  const proporcao = novoAngulo / anguloInicial;
+  thetaReal *= proporcao;
+  velocidadeAngularReal *= proporcao;
+
+  anguloInicial = novoAngulo;
   comprimento = lerControle("pL");
-
-  omegaPendulo = Math.sqrt(G / comprimento);
-  periodoMHS = (2 * Math.PI) / omegaPendulo;
-
-  // Mostramos três períodos. O real é sempre um pouco maior que o do MHS,
-  // então reservamos uma folga de 30%.
-  duracaoPendulo = 3 * periodoMHS * 1.3;
-  simularPenduloReal();
-  tempoPendulo = 0;
 
   // Quanto sen θ0 é diferente de θ0?
   const seno = Math.sin(anguloInicial);
   const erro = ((anguloInicial - seno) / seno) * 100;
+  const periodoMHS = (2 * Math.PI) / omegaDoPendulo();
 
   escrever("opTheta", graus + "°");
   escrever("opL", formatar(comprimento, 1) + " m");
@@ -115,7 +129,7 @@ function lerPendulo() {
   escrever("pSen", formatar(seno, 3));
   escrever("pErro", formatar(erro, 1) + "%");
   escrever("pTmhs", formatar(periodoMHS, 3) + " s");
-  escrever("pTreal", formatar(periodoReal, 3) + " s");
+  escrever("pTreal", formatar(medirPeriodoReal(), 3) + " s");
 }
 
 for (const id of ["pTheta", "pL"]) {
@@ -123,7 +137,38 @@ for (const id of ["pTheta", "pL"]) {
 }
 
 
-/* ---------- Desenho ---------- */
+/* =====================================================================
+ *  AVANÇAR O TEMPO
+ * ===================================================================== */
+
+function avancar(tempoQuePassou) {
+  // Dividimos o tempo em passos pequenos de 0,001 s
+  const numeroDePassos = Math.round(tempoQuePassou / PASSO);
+  const dt = numeroDePassos * PASSO;
+
+  // Pêndulo real: um passo de Runge-Kutta de cada vez
+  for (let i = 0; i < numeroDePassos; i++) {
+    const novo = passoRungeKutta(thetaReal, velocidadeAngularReal, PASSO);
+    thetaReal = novo.theta;
+    velocidadeAngularReal = novo.w;
+  }
+
+  // Pêndulo MHS: o ângulo do cosseno anda ω · Δt
+  faseMHS += omegaDoPendulo() * dt;
+
+  tempoPendulo += dt;
+
+  // Guarda o ponto no histórico e apaga os pontos que saíram da janela
+  historico.push({ t: tempoPendulo, real: thetaReal, mhs: anguloMHS() });
+  while (historico[0].t < tempoPendulo - JANELA_GRAFICO) {
+    historico.shift();
+  }
+}
+
+
+/* =====================================================================
+ *  DESENHO
+ * ===================================================================== */
 
 // Desenha um pêndulo pendurado em (pivoX, pivoY)
 function desenharUmPendulo(pincel, pivoX, pivoY, tamanho, theta, corDoPendulo, tracejado) {
@@ -134,53 +179,83 @@ function desenharUmPendulo(pincel, pivoX, pivoY, tamanho, theta, corDoPendulo, t
   bolinha(pincel, x, y, 11, corDoPendulo);
 }
 
-function desenharPendulo() {
-  if (penduloRodando()) {
-    tempoPendulo += 1 / 60;               // cerca de 1/60 s por quadro
-    if (tempoPendulo >= duracaoPendulo) { // chegou ao fim: recomeça
-      tempoPendulo = 0;
-    }
+function desenharPendulos() {
+  const { pincel, largura, altura } = prepararTela("pendulo");
+  const pivoX = largura / 2;
+  const pivoY = 16;
+  // O maior fio (2 m) ocupa quase toda a altura do desenho
+  const tamanho = (comprimento / 2) * (altura - 40);
+
+  linha(pincel, pivoX - 40, pivoY, pivoX + 40, pivoY, cor("--muted"), 4);
+  linha(pincel, pivoX, pivoY, pivoX, altura - 10, cor("--line"), 1, true);   // vertical
+  desenharUmPendulo(pincel, pivoX, pivoY, tamanho, anguloMHS(), cor("--orange"), true);
+  desenharUmPendulo(pincel, pivoX, pivoY, tamanho, thetaReal, cor("--accent"), false);
+  bolinha(pincel, pivoX, pivoY, 4, cor("--text"));
+}
+
+function desenharGraficoPendulo() {
+  const { pincel, largura, altura } = prepararTela("penduloGrafico");
+  const meio = altura / 2;
+
+  // Escala vertical: o maior ângulo que aparece no histórico, com folga
+  let maiorAngulo = radianosParaGraus(anguloInicial);
+  for (const ponto of historico) {
+    maiorAngulo = Math.max(maiorAngulo, Math.abs(radianosParaGraus(ponto.real)), Math.abs(radianosParaGraus(ponto.mhs)));
   }
-  const thetaReal = anguloReal(tempoPendulo);
-  const thetaMHS = anguloMHS(tempoPendulo);
+  const escala = maiorAngulo * 1.15;
 
-  /* ---------- Os dois pêndulos ---------- */
-  {
-    const { pincel, largura, altura } = prepararTela("pendulo");
-    const pivoX = largura / 2;
-    const pivoY = 16;
-    // 2 metros (o maior L) ocupam quase toda a altura
-    const tamanho = (comprimento / 2) * (altura - 50);
+  // O gráfico "anda": a borda direita é sempre o instante atual
+  const inicioDaJanela = Math.max(0, tempoPendulo - JANELA_GRAFICO);
+  const tempoParaPixel = (t) => 10 + ((largura - 20) * (t - inicioDaJanela)) / JANELA_GRAFICO;
+  const grausParaPixel = (graus) => meio - (graus / escala) * (altura / 2 - 20);
 
-    linha(pincel, pivoX - 40, pivoY, pivoX + 40, pivoY, cor("--muted"), 4);
-    linha(pincel, pivoX, pivoY, pivoX, altura - 10, cor("--line"), 1, true);   // vertical
-    desenharUmPendulo(pincel, pivoX, pivoY, tamanho, thetaMHS, cor("--orange"), true);
-    desenharUmPendulo(pincel, pivoX, pivoY, tamanho, thetaReal, cor("--accent"), false);
-    bolinha(pincel, pivoX, pivoY, 4, cor("--text"));
+  linha(pincel, 0, meio, largura, meio, cor("--line"));
+  texto(pincel, "θ (graus) nos últimos 8 segundos", 10, 14, cor("--muted"), 12);
+
+  // Liga os pontos do histórico: primeiro o MHS, depois o real por cima
+  const series = [
+    { campo: "mhs", corDaCurva: cor("--orange"), tracejada: true },
+    { campo: "real", corDaCurva: cor("--accent"), tracejada: false },
+  ];
+  for (const serie of series) {
+    pincel.strokeStyle = serie.corDaCurva;
+    pincel.lineWidth = 2;
+    pincel.setLineDash(serie.tracejada ? [6, 5] : []);
+    pincel.beginPath();
+    historico.forEach((ponto, i) => {
+      const x = tempoParaPixel(ponto.t);
+      const y = grausParaPixel(radianosParaGraus(ponto[serie.campo]));
+      if (i === 0) {
+        pincel.moveTo(x, y);
+      } else {
+        pincel.lineTo(x, y);
+      }
+    });
+    pincel.stroke();
+    pincel.setLineDash([]);
   }
+}
 
-  /* ---------- Gráfico θ(t) em graus ---------- */
-  {
-    const { pincel, largura, altura } = prepararTela("penduloGrafico");
-    const meio = altura / 2;
-    const maximo = radianosParaGraus(anguloInicial) * 1.15;
-    const tempoParaPixel = (t) => 10 + ((largura - 20) * t) / duracaoPendulo;
-    const grausParaPixel = (graus) => meio - (graus / maximo) * (altura / 2 - 20);
 
-    linha(pincel, 0, meio, largura, meio, cor("--line"));
-    texto(pincel, "θ (graus) ao longo do tempo", 10, 14, cor("--muted"), 12);
+/* =====================================================================
+ *  ANIMAÇÃO
+ * ===================================================================== */
 
-    const realEmGraus = (t) => radianosParaGraus(anguloReal(t));
-    const mhsEmGraus = (t) => radianosParaGraus(anguloMHS(t));
-    curva(pincel, mhsEmGraus, 0, tempoPendulo, tempoParaPixel, grausParaPixel, cor("--orange"), 2, true);
-    curva(pincel, realEmGraus, 0, tempoPendulo, tempoParaPixel, grausParaPixel, cor("--accent"), 2);
+let instanteAnteriorPendulo = null;
 
-    bolinha(pincel, tempoParaPixel(tempoPendulo), grausParaPixel(realEmGraus(tempoPendulo)), 4, cor("--accent"));
-    bolinha(pincel, tempoParaPixel(tempoPendulo), grausParaPixel(mhsEmGraus(tempoPendulo)), 4, cor("--orange"));
+function quadroPendulo(instanteAtual) {
+  if (instanteAnteriorPendulo !== null && penduloRodando()) {
+    // Tempo real que passou desde o último quadro (no máximo 0,05 s)
+    const passou = Math.min((instanteAtual - instanteAnteriorPendulo) / 1000, 0.05);
+    avancar(passou);
   }
+  instanteAnteriorPendulo = instanteAtual;
 
-  requestAnimationFrame(desenharPendulo);
+  desenharPendulos();
+  desenharGraficoPendulo();
+  requestAnimationFrame(quadroPendulo);
 }
 
 lerPendulo();
-requestAnimationFrame(desenharPendulo);
+historico.push({ t: 0, real: thetaReal, mhs: anguloMHS() });
+requestAnimationFrame(quadroPendulo);
