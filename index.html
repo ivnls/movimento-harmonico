@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Movimento Harmônico Simples</title>
+<meta name="description" content="Aplicação de trigonometria ao Movimento Harmônico Simples, com simulador interativo e código em Python.">
+<style>
+  :root {
+    --bg: #f7f7f5; --card: #ffffff; --text: #1d1d1f; --muted: #5f6368;
+    --line: #e2e2de; --accent: #2563eb; --purple: #7c3aed; --orange: #ea580c;
+    --red: #dc2626; --green: #16a34a; --grid: #ececea;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #121214; --card: #1c1c1f; --text: #ececec; --muted: #a1a1aa;
+      --line: #2e2e33; --accent: #60a5fa; --purple: #a78bfa; --orange: #fb923c;
+      --red: #f87171; --green: #4ade80; --grid: #26262b;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 16px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  main { max-width: 1000px; margin: 0 auto; padding: 32px 16px 64px; }
+  h1 { font-size: 2rem; line-height: 1.2; margin: 0 0 8px; }
+  h2 { font-size: 1.35rem; margin: 48px 0 12px; }
+  p.lead { color: var(--muted); font-size: 1.1rem; margin-top: 0; }
+  .card {
+    background: var(--card); border: 1px solid var(--line);
+    border-radius: 12px; padding: 20px;
+  }
+  .formula {
+    font-family: "Cambria Math", Georgia, serif; font-size: 1.15rem;
+    background: var(--card); border: 1px solid var(--line); border-left: 4px solid var(--accent);
+    border-radius: 8px; padding: 12px 16px; margin: 12px 0; overflow-x: auto;
+  }
+  table { border-collapse: collapse; width: 100%; font-size: .95rem; }
+  th, td { padding: 8px 10px; border-bottom: 1px solid var(--line); text-align: left; }
+  th { color: var(--muted); font-weight: 600; }
+  .table-wrap { overflow-x: auto; }
+  .sim { display: grid; grid-template-columns: 300px 1fr; gap: 16px; }
+  @media (max-width: 760px) { .sim { grid-template-columns: 1fr; } }
+  canvas { width: 100%; display: block; }
+  .controls { display: grid; gap: 14px; margin-top: 16px; }
+  .controls label { display: grid; grid-template-columns: 1fr auto; font-size: .95rem; }
+  .controls input[type=range] { grid-column: 1 / -1; width: 100%; accent-color: var(--accent); }
+  .controls output { font-variant-numeric: tabular-nums; font-weight: 600; }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin-top: 16px; }
+  .stat { background: var(--bg); border-radius: 8px; padding: 10px 12px; }
+  .stat b { display: block; font-size: 1.15rem; font-variant-numeric: tabular-nums; }
+  .stat span { color: var(--muted); font-size: .85rem; }
+  button {
+    font: inherit; padding: 8px 16px; border-radius: 8px; cursor: pointer;
+    border: 1px solid var(--line); background: var(--bg); color: var(--text);
+  }
+  figure { margin: 16px 0; }
+  figure img { width: 100%; height: auto; border-radius: 8px; border: 1px solid var(--line); background: #fff; }
+  figcaption { color: var(--muted); font-size: .92rem; margin-top: 6px; }
+  pre { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 12px 16px; overflow-x: auto; }
+  a { color: var(--accent); }
+  footer { margin-top: 56px; color: var(--muted); font-size: .9rem; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Movimento Harmônico Simples</h1>
+  <p class="lead">Como a trigonometria descreve tudo que oscila: molas, pêndulos, cordas de violão e o som.</p>
+
+  <div class="card">
+    <strong>Situação-problema.</strong> Um bloco de <b>0,5 kg</b> está preso a uma mola de constante
+    <b>k = 50 N/m</b>. Ele é puxado <b>10 cm</b> da posição de equilíbrio e solto. Como o bloco se move?
+  </div>
+
+  <h2>O modelo trigonométrico</h2>
+  <div class="formula">x(t) = A · cos(ω·t + φ)</div>
+  <div class="table-wrap">
+  <table>
+    <tr><th>Grandeza</th><th>Fórmula</th><th>No problema</th></tr>
+    <tr><td>Velocidade</td><td>v(t) = −A·ω·sen(ωt + φ)</td><td>v<sub>máx</sub> = 1 m/s</td></tr>
+    <tr><td>Aceleração</td><td>a(t) = −A·ω²·cos(ωt + φ) = −ω²·x</td><td>a<sub>máx</sub> = 10 m/s²</td></tr>
+    <tr><td>Frequência angular</td><td>ω = √(k/m)</td><td>10 rad/s</td></tr>
+    <tr><td>Período</td><td>T = 2π/ω</td><td>≈ 0,628 s</td></tr>
+    <tr><td>Energia mecânica</td><td>E = ½·k·A²</td><td>0,25 J</td></tr>
+  </table>
+  </div>
+
+  <h2>Simulador interativo</h2>
+  <p>Um ponto gira no <b>círculo trigonométrico</b> com ângulo θ = ωt. A sombra dele no eixo horizontal vale
+     <b>A·cos θ</b>, e essa sombra se move exatamente como o bloco da mola. Mude os parâmetros e veja o gráfico mudar.</p>
+  <div class="card">
+    <div class="sim">
+      <div>
+        <canvas id="circle" height="300"></canvas>
+        <canvas id="spring" height="80"></canvas>
+      </div>
+      <div>
+        <canvas id="graph" height="380"></canvas>
+      </div>
+    </div>
+    <div class="controls">
+      <label>Amplitude A (m) <output id="oA"></output><input id="A" type="range" min="0.02" max="0.15" step="0.01" value="0.10"></label>
+      <label>Massa m (kg) <output id="om"></output><input id="m" type="range" min="0.1" max="2" step="0.1" value="0.5"></label>
+      <label>Constante da mola k (N/m) <output id="ok"></output><input id="k" type="range" min="10" max="200" step="5" value="50"></label>
+      <label>Fase inicial φ <output id="ophi"></output><input id="phi" type="range" min="0" max="8" step="1" value="0"></label>
+    </div>
+    <div class="stats">
+      <div class="stat"><b id="sw"></b><span>ω = √(k/m)</span></div>
+      <div class="stat"><b id="sT"></b><span>período T = 2π/ω</span></div>
+      <div class="stat"><b id="sf"></b><span>frequência f = 1/T</span></div>
+      <div class="stat"><b id="sv"></b><span>v<sub>máx</sub> = A·ω</span></div>
+      <div class="stat"><b id="sE"></b><span>energia E = ½kA²</span></div>
+    </div>
+    <p style="margin-bottom:0"><button id="play">Pausar</button></p>
+  </div>
+
+  <h2>Resultados gerados em Python</h2>
+  <p>As figuras abaixo foram geradas pelo programa <a href="mhs.py">mhs.py</a>, escrito em Python com as bibliotecas NumPy e Matplotlib.</p>
+
+  <figure>
+    <img src="img/animacao_mhs.gif" alt="Animação: ponto girando no círculo trigonométrico, sua projeção e o bloco da mola" loading="lazy">
+    <figcaption>O MHS é a projeção de um movimento circular uniforme.</figcaption>
+  </figure>
+  <figure>
+    <img src="img/fig1_posicao_velocidade_aceleracao.png" alt="Gráficos de posição, velocidade e aceleração" loading="lazy">
+    <figcaption>A posição é um cosseno e a velocidade é um seno, defasada de π/2. A aceleração tem sempre o sinal oposto ao da posição.</figcaption>
+  </figure>
+  <figure>
+    <img src="img/fig2_energia.png" alt="Energia potencial, cinética e mecânica" loading="lazy">
+    <figcaption>Ep = ½kA²·cos² e Ec = ½kA²·sen². A soma é constante porque <b>sen²θ + cos²θ = 1</b>.</figcaption>
+  </figure>
+  <figure>
+    <img src="img/fig3_parametros.png" alt="Efeito de A, ω e φ" loading="lazy">
+    <figcaption>A muda a altura da onda, ω muda a rapidez da oscilação e φ desloca a curva no tempo.</figcaption>
+  </figure>
+  <figure>
+    <img src="img/fig4_pendulo.png" alt="Pêndulo real comparado à aproximação de MHS" loading="lazy">
+    <figcaption>No pêndulo, a equação real usa sen θ. O MHS usa a aproximação sen θ ≈ θ (em radianos). Com 10° as curvas coincidem; com 60° o erro chega a cerca de 21%.</figcaption>
+  </figure>
+
+  <h2>Valores em ângulos notáveis</h2>
+  <div class="table-wrap">
+  <table>
+    <tr><th>t</th><th>ângulo ωt</th><th>x (m)</th><th>v (m/s)</th><th>a (m/s²)</th></tr>
+    <tr><td>0</td><td>0</td><td>0,10</td><td>0</td><td>−10</td></tr>
+    <tr><td>T/4</td><td>π/2</td><td>0</td><td>−1</td><td>0</td></tr>
+    <tr><td>T/2</td><td>π</td><td>−0,10</td><td>0</td><td>10</td></tr>
+    <tr><td>3T/4</td><td>3π/2</td><td>0</td><td>1</td><td>0</td></tr>
+    <tr><td>T</td><td>2π</td><td>0,10</td><td>0</td><td>−10</td></tr>
+  </table>
+  </div>
+
+  <h2>Como rodar o código</h2>
+  <p>Baixe o <a href="mhs.py">mhs.py</a> e rode no computador, ou cole o código numa célula do Google Colab.</p>
+  <pre>pip install numpy matplotlib pillow
+python mhs.py</pre>
+
+  <footer>Trabalho de Trigonometria: Movimento Harmônico.</footer>
+</main>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const css = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  const phiLabels = ["0","π/4","π/2","3π/4","π","5π/4","3π/2","7π/4","2π"];
+  const fmt = (n, d = 2) => n.toFixed(d).replace(".", ",");
+  let P = {}, t = 0, running = true, last = null;
+
+  function read() {
+    P.A = +$("A").value; P.m = +$("m").value; P.k = +$("k").value;
+    P.phiIdx = +$("phi").value; P.phi = P.phiIdx * Math.PI / 4;
+    P.w = Math.sqrt(P.k / P.m); P.T = 2 * Math.PI / P.w;
+    $("oA").textContent = fmt(P.A); $("om").textContent = fmt(P.m, 1);
+    $("ok").textContent = P.k; $("ophi").textContent = phiLabels[P.phiIdx];
+    $("sw").textContent = fmt(P.w) + " rad/s"; $("sT").textContent = fmt(P.T, 3) + " s";
+    $("sf").textContent = fmt(1 / P.T) + " Hz"; $("sv").textContent = fmt(P.A * P.w) + " m/s";
+    $("sE").textContent = fmt(0.5 * P.k * P.A * P.A, 3) + " J";
+  }
+  ["A","m","k","phi"].forEach(id => $(id).addEventListener("input", () => { read(); t = 0; }));
+  $("play").onclick = () => { running = !running; $("play").textContent = running ? "Pausar" : "Continuar"; };
+
+  function setup(c) {
+    const r = window.devicePixelRatio || 1, w = c.clientWidth, h = +c.getAttribute("height");
+    if (c.width !== Math.round(w * r)) { c.width = Math.round(w * r); c.height = Math.round(h * r); c.style.height = h + "px"; }
+    const g = c.getContext("2d"); g.setTransform(r, 0, 0, r, 0, 0); g.clearRect(0, 0, w, h);
+    return [g, w, h];
+  }
+  const AMAX = 0.15;
+
+  function drawCircle() {
+    const [g, w, h] = setup($("circle"));
+    const cx = w / 2, cy = h / 2, s = Math.min(w, h) * 0.42 / AMAX, R = P.A * s;
+    const th = P.w * t + P.phi, px = cx + R * Math.cos(th), py = cy - R * Math.sin(th);
+    g.strokeStyle = css("--line"); g.lineWidth = 1;
+    g.beginPath(); g.moveTo(0, cy); g.lineTo(w, cy); g.moveTo(cx, 0); g.lineTo(cx, h); g.stroke();
+    g.strokeStyle = css("--muted"); g.globalAlpha = .4; g.lineWidth = 2;
+    g.beginPath(); g.arc(cx, cy, R, 0, 2 * Math.PI); g.stroke(); g.globalAlpha = 1;
+    g.strokeStyle = css("--purple"); g.lineWidth = 2;
+    g.beginPath(); g.moveTo(cx, cy); g.lineTo(px, py); g.stroke();
+    g.setLineDash([4, 4]); g.strokeStyle = css("--muted");
+    g.beginPath(); g.moveTo(px, py); g.lineTo(px, cy); g.stroke(); g.setLineDash([]);
+    dot(g, px, py, css("--purple")); dot(g, px, cy, css("--accent"));
+    g.fillStyle = css("--text"); g.font = "13px system-ui";
+    const deg = ((th * 180 / Math.PI) % 360 + 360) % 360;
+    g.fillText("θ = " + deg.toFixed(0) + "°", 8, 18);
+    g.fillText("x = A·cos θ = " + fmt(P.A * Math.cos(th), 3) + " m", 8, 36);
+  }
+  function dot(g, x, y, c) { g.fillStyle = c; g.beginPath(); g.arc(x, y, 7, 0, 2 * Math.PI); g.fill(); }
+
+  function drawSpring() {
+    const [g, w, h] = setup($("spring"));
+    const cx = w / 2, s = Math.min(w, 300) * 0.42 / AMAX, cy = h / 2;
+    const x = cx + P.A * Math.cos(P.w * t + P.phi) * s, wall = 10, bw = 26;
+    g.fillStyle = css("--muted"); g.fillRect(0, 10, wall, h - 20);
+    g.strokeStyle = css("--muted"); g.lineWidth = 1.5; g.beginPath(); g.moveTo(wall, cy);
+    const n = 16, end = x - bw / 2;
+    for (let i = 1; i < n; i++) g.lineTo(wall + (end - wall) * i / n, cy + (i % 2 ? -10 : 10));
+    g.lineTo(end, cy); g.stroke();
+    g.fillStyle = css("--accent"); g.fillRect(x - bw / 2, cy - bw / 2, bw, bw);
+    g.setLineDash([4, 4]); g.strokeStyle = css("--line");
+    g.beginPath(); g.moveTo(cx, 4); g.lineTo(cx, h - 4); g.stroke(); g.setLineDash([]);
+  }
+
+  function drawGraph() {
+    const [g, w, h] = setup($("graph"));
+    const L = 44, Rm = 10, rows = [
+      { name: "x(t) = A·cos(ωt+φ)", f: tt => P.A * Math.cos(P.w * tt + P.phi), max: AMAX, c: css("--accent") },
+      { name: "v(t) = −Aω·sen(ωt+φ)", f: tt => -P.A * P.w * Math.sin(P.w * tt + P.phi), max: P.A * P.w * 1.15, c: css("--orange") },
+      { name: "a(t) = −Aω²·cos(ωt+φ)", f: tt => -P.A * P.w * P.w * Math.cos(P.w * tt + P.phi), max: P.A * P.w * P.w * 1.15, c: css("--red") },
+    ];
+    const span = 2 * P.T, rh = h / 3, tc = t % span;
+    rows.forEach((r, i) => {
+      const top = i * rh + 18, bot = (i + 1) * rh - 6, mid = (top + bot) / 2, amp = (bot - top) / 2;
+      g.strokeStyle = css("--grid"); g.lineWidth = 1;
+      g.beginPath(); g.moveTo(L, mid); g.lineTo(w - Rm, mid); g.stroke();
+      for (let k = 1; k <= 2; k++) {
+        const xx = L + (w - L - Rm) * k / 2;
+        g.setLineDash([3, 3]); g.beginPath(); g.moveTo(xx, top); g.lineTo(xx, bot); g.stroke(); g.setLineDash([]);
+      }
+      g.fillStyle = css("--muted"); g.font = "12px system-ui";
+      g.fillText(r.name, L, top - 4);
+      g.strokeStyle = r.c; g.lineWidth = 2; g.beginPath();
+      const N = 300;
+      for (let j = 0; j <= N; j++) {
+        const tt = tc * j / N, X = L + (w - L - Rm) * tt / span, Y = mid - r.f(tt) / r.max * amp;
+        j ? g.lineTo(X, Y) : g.moveTo(X, Y);
+      }
+      g.stroke();
+      const X = L + (w - L - Rm) * tc / span, Y = mid - r.f(tc) / r.max * amp;
+      g.fillStyle = r.c; g.beginPath(); g.arc(X, Y, 4, 0, 2 * Math.PI); g.fill();
+    });
+  }
+
+  function frame(ts) {
+    if (last !== null && running) t += Math.min((ts - last) / 1000, 0.05) * 0.5; // câmera lenta (0,5x)
+    last = ts;
+    drawCircle(); drawSpring(); drawGraph();
+    requestAnimationFrame(frame);
+  }
+  read(); requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
