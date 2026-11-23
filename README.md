@@ -48,4 +48,5 @@ As figuras são salvas na pasta `img/`. Para testar outros casos, mude `m`, `k`,
 ## Estrutura
 - `mhs.py`: código em Python que gera as figuras e a animação
 - `img/`: figuras e animação geradas
-- `index.html`: página do GitHub Pages, com um simulador interativo em JavaScript
+- `index.html`: página do GitHub Pages
+- `simulador.js`: lógica do simulador interativo em JavaScript, comentada passo a passo
