@@ -1,6 +1,6 @@
 # Movimento Harmônico Simples: aplicação em Python
 
-**Site com simulador interativo:** https://ivnls.github.io/movimento-harmonico/
+**Site com simulador interativo:** https://ivnls.github.io/monimento-harmonico/
 
 **Software:** Python 3 com as bibliotecas NumPy (cálculo) e Matplotlib (gráficos e animação).
 Também roda no Google Colab, sem instalar nada: cole o código de `mhs.py` numa célula.
