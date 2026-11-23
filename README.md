@@ -1,6 +1,6 @@
 # Movimento Harmônico Simples: aplicação em Python
 
-**Site com simulador interativo:** https://ivnls.github.io/movimento-harmonico/
+**Site com simulador interativo:** https://harmonico.ivnls.xyz/
 
 **Software:** Python 3 com as bibliotecas NumPy (cálculo) e Matplotlib (gráficos e animação).
 Também roda no Google Colab, sem instalar nada: cole o código de `mhs.py` numa célula.
@@ -46,7 +46,10 @@ python mhs.py
 As figuras são salvas na pasta `img/`. Para testar outros casos, mude `m`, `k`, `A` e `phi` no início do código.
 
 ## Estrutura
-- `mhs.py`: código em Python que gera as figuras e a animação
-- `img/`: figuras e animação geradas
-- `index.html`: página do GitHub Pages
-- `simulador.js`: lógica do simulador interativo em JavaScript, comentada passo a passo
+- `index.html`: página do site, com as aplicações interativas
+- `comum.js`: funções comuns (formatar números, desenhar linhas, curvas e pontos)
+- `simulador.js`: círculo trigonométrico, sistema massa-mola, gráficos x(t), v(t), a(t) e tabela dos ângulos notáveis
+- `energia.js`: energia potencial e cinética, e a identidade sen²θ + cos²θ = 1
+- `parametros.js`: comparação do efeito de A, ω e φ no gráfico
+- `pendulo.js`: pêndulo real comparado com a aproximação sen θ ≈ θ
+- `mhs.py` e `img/`: versão em Python (fora do site)

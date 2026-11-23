@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Movimento Harmônico Simples</title>
-<meta name="description" content="Aplicação de trigonometria ao Movimento Harmônico Simples, com simulador interativo e código em Python.">
+<meta name="description" content="Aplicação de trigonometria ao Movimento Harmônico Simples, com simuladores interativos.">
 <style>
   :root {
     --bg: #f7f7f5; --card: #ffffff; --text: #1d1d1f; --muted: #5f6368;
@@ -40,6 +40,9 @@
   th, td { padding: 8px 10px; border-bottom: 1px solid var(--line); text-align: left; }
   th { color: var(--muted); font-weight: 600; }
   .table-wrap { overflow-x: auto; }
+  .duas { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 760px) { .duas { grid-template-columns: 1fr; } }
+  .nota { color: var(--muted); font-size: .92rem; margin-bottom: 0; }
   .sim { display: grid; grid-template-columns: 300px 1fr; gap: 16px; }
   @media (max-width: 760px) { .sim { grid-template-columns: 1fr; } }
   canvas { width: 100%; display: block; }
@@ -55,10 +58,6 @@
     font: inherit; padding: 8px 16px; border-radius: 8px; cursor: pointer;
     border: 1px solid var(--line); background: var(--bg); color: var(--text);
   }
-  figure { margin: 16px 0; }
-  figure img { width: 100%; height: auto; border-radius: 8px; border: 1px solid var(--line); background: #fff; }
-  figcaption { color: var(--muted); font-size: .92rem; margin-top: 6px; }
-  pre { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 12px 16px; overflow-x: auto; }
   a { color: var(--accent); }
   footer { margin-top: 56px; color: var(--muted); font-size: .9rem; }
 </style>
@@ -86,7 +85,7 @@
   </table>
   </div>
 
-  <h2>Simulador interativo</h2>
+  <h2>1. Simulador: o círculo trigonométrico e a mola</h2>
   <p>Um ponto gira no <b>círculo trigonométrico</b> com ângulo θ = ωt. A sombra dele no eixo horizontal vale
      <b>A·cos θ</b>, e essa sombra se move exatamente como o bloco da mola. Mude os parâmetros e veja o gráfico mudar.</p>
   <div class="card">
@@ -115,50 +114,68 @@
     <p style="margin-bottom:0"><button id="play">Pausar</button></p>
   </div>
 
-  <h2>Resultados gerados em Python</h2>
-  <p>As figuras abaixo foram geradas pelo programa <a href="mhs.py">mhs.py</a>, escrito em Python com as bibliotecas NumPy e Matplotlib.</p>
-
-  <figure>
-    <img src="img/animacao_mhs.gif" alt="Animação: ponto girando no círculo trigonométrico, sua projeção e o bloco da mola" loading="lazy">
-    <figcaption>O MHS é a projeção de um movimento circular uniforme.</figcaption>
-  </figure>
-  <figure>
-    <img src="img/fig1_posicao_velocidade_aceleracao.png" alt="Gráficos de posição, velocidade e aceleração" loading="lazy">
-    <figcaption>A posição é um cosseno e a velocidade é um seno, defasada de π/2. A aceleração tem sempre o sinal oposto ao da posição.</figcaption>
-  </figure>
-  <figure>
-    <img src="img/fig2_energia.png" alt="Energia potencial, cinética e mecânica" loading="lazy">
-    <figcaption>Ep = ½kA²·cos² e Ec = ½kA²·sen². A soma é constante porque <b>sen²θ + cos²θ = 1</b>.</figcaption>
-  </figure>
-  <figure>
-    <img src="img/fig3_parametros.png" alt="Efeito de A, ω e φ" loading="lazy">
-    <figcaption>A muda a altura da onda, ω muda a rapidez da oscilação e φ desloca a curva no tempo.</figcaption>
-  </figure>
-  <figure>
-    <img src="img/fig4_pendulo.png" alt="Pêndulo real comparado à aproximação de MHS" loading="lazy">
-    <figcaption>No pêndulo, a equação real usa sen θ. O MHS usa a aproximação sen θ ≈ θ (em radianos). Com 10° as curvas coincidem; com 60° o erro chega a cerca de 21%.</figcaption>
-  </figure>
-
-  <h2>Valores em ângulos notáveis</h2>
-  <div class="table-wrap">
-  <table>
-    <tr><th>t</th><th>ângulo ωt</th><th>x (m)</th><th>v (m/s)</th><th>a (m/s²)</th></tr>
-    <tr><td>0</td><td>0</td><td>0,10</td><td>0</td><td>−10</td></tr>
-    <tr><td>T/4</td><td>π/2</td><td>0</td><td>−1</td><td>0</td></tr>
-    <tr><td>T/2</td><td>π</td><td>−0,10</td><td>0</td><td>10</td></tr>
-    <tr><td>3T/4</td><td>3π/2</td><td>0</td><td>1</td><td>0</td></tr>
-    <tr><td>T</td><td>2π</td><td>0,10</td><td>0</td><td>−10</td></tr>
-  </table>
+  <h2>2. Energia: sen²θ + cos²θ = 1</h2>
+  <p>A energia potencial da mola depende de <b>cos²θ</b> e a energia cinética do bloco depende de <b>sen²θ</b>.
+     Uma cresce enquanto a outra diminui, e a soma nunca muda. Esta seção usa os mesmos valores do simulador acima.</p>
+  <div class="card">
+    <canvas id="energia" height="240"></canvas>
+    <div class="stats">
+      <div class="stat"><b id="eCos"></b><span>cos²θ</span></div>
+      <div class="stat"><b id="eSen"></b><span>sen²θ</span></div>
+      <div class="stat"><b id="eSoma"></b><span>cos²θ + sen²θ</span></div>
+      <div class="stat"><b id="eEp"></b><span>Ep = ½kA²·cos²θ</span></div>
+      <div class="stat"><b id="eEc"></b><span>Ec = ½kA²·sen²θ</span></div>
+      <div class="stat"><b id="eE"></b><span>Ep + Ec</span></div>
+    </div>
   </div>
 
-  <h2>Como rodar o código</h2>
-  <p>Baixe o <a href="mhs.py">mhs.py</a> e rode no computador, ou cole o código numa célula do Google Colab.</p>
-  <pre>pip install numpy matplotlib pillow
-python mhs.py</pre>
+  <h2>3. Valores nos ângulos notáveis</h2>
+  <p>A cada quarto de período, o ponto anda 90° no círculo trigonométrico. A tabela é recalculada quando você muda os parâmetros do simulador.</p>
+  <div class="table-wrap"><table id="tabela"></table></div>
+
+  <h2>4. O papel de A, ω e φ</h2>
+  <p>A curva cinza tracejada é a referência <b>x(t) = 0,10·cos(2π·t)</b>. Mude os controles e compare com a curva azul.</p>
+  <div class="card">
+    <p class="formula" id="cEquacao" style="margin-top:0"></p>
+    <canvas id="comparar" height="240"></canvas>
+    <div class="controls">
+      <label>Amplitude A (m): muda a altura <output id="ocA"></output><input id="cA" type="range" min="0.02" max="0.15" step="0.01" value="0.10"></label>
+      <label>Frequência angular ω: muda a rapidez <output id="ocW"></output><input id="cW" type="range" min="0.5" max="6" step="0.5" value="2"></label>
+      <label>Fase inicial φ: desloca a curva <output id="ocPhi"></output><input id="cPhi" type="range" min="0" max="8" step="1" value="0"></label>
+    </div>
+    <p class="nota" id="cPeriodo"></p>
+  </div>
+
+  <h2>5. Pêndulo simples: sen θ ≈ θ</h2>
+  <p>A equação real do pêndulo usa <b>sen θ</b>. Para virar um MHS, trocamos sen θ por θ (em radianos), o que só funciona bem
+     para ângulos pequenos. O pêndulo <span style="color:var(--accent);font-weight:600">azul</span> é o real, calculado passo a passo pelo computador.
+     O <span style="color:var(--orange);font-weight:600">laranja tracejado</span> segue a fórmula do MHS: θ(t) = θ0·cos(√(g/L)·t). Aumente o ângulo e veja os dois se separarem.</p>
+  <div class="card">
+    <div class="duas">
+      <canvas id="pendulo" height="280"></canvas>
+      <canvas id="penduloGrafico" height="280"></canvas>
+    </div>
+    <div class="controls">
+      <label>Ângulo inicial θ0 <output id="opTheta"></output><input id="pTheta" type="range" min="5" max="85" step="5" value="10"></label>
+      <label>Comprimento do fio L <output id="opL"></output><input id="pL" type="range" min="0.5" max="2" step="0.1" value="1"></label>
+    </div>
+    <div class="stats">
+      <div class="stat"><b id="pRad"></b><span>θ0 em radianos</span></div>
+      <div class="stat"><b id="pSen"></b><span>sen θ0</span></div>
+      <div class="stat"><b id="pErro"></b><span>diferença entre θ0 e sen θ0</span></div>
+      <div class="stat"><b id="pTmhs"></b><span>período pelo MHS: 2π√(L/g)</span></div>
+      <div class="stat"><b id="pTreal"></b><span>período real (simulado)</span></div>
+    </div>
+    <p style="margin-bottom:0"><button id="pPlay">Pausar</button></p>
+  </div>
 
   <footer>Trabalho de Trigonometria: Movimento Harmônico.</footer>
 </main>
 
+<script src="comum.js"></script>
 <script src="simulador.js"></script>
+<script src="energia.js"></script>
+<script src="parametros.js"></script>
+<script src="pendulo.js"></script>
 </body>
 </html>

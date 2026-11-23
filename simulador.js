@@ -1,21 +1,23 @@
 /*
  * =====================================================================
- *  SIMULADOR DE MOVIMENTO HARMÔNICO SIMPLES (MHS)
+ *  SIMULADOR DO SISTEMA MASSA-MOLA (seção 1 da página)
  * =====================================================================
  *
- *  Este arquivo controla o simulador da página. Ele é dividido em partes:
- *
+ *  Partes deste arquivo:
  *    1. Parâmetros do movimento (A, m, k, φ)
  *    2. A física: as fórmulas trigonométricas do MHS
  *    3. Leitura dos controles deslizantes
- *    4. Desenho do círculo trigonométrico
- *    5. Desenho do sistema massa-mola
- *    6. Desenho dos gráficos x(t), v(t) e a(t)
- *    7. A animação (o "relógio" do simulador)
+ *    4. Tabela dos ângulos notáveis
+ *    5. Desenho do círculo trigonométrico
+ *    6. Desenho do sistema massa-mola
+ *    7. Desenho dos gráficos x(t), v(t) e a(t)
+ *    8. A animação (o "relógio" do simulador)
  *
  *  Ideia central: um ponto gira no círculo trigonométrico com ângulo
  *  θ = ω·t + φ. A projeção (a "sombra") desse ponto no eixo horizontal
  *  vale A·cos(θ). Essa sombra se move exatamente como o bloco da mola.
+ *
+ *  As funções formatar, escrever, linha, bolinha etc. estão em comum.js.
  */
 
 
@@ -35,10 +37,8 @@ let omega = 0;             // ω: frequência angular, em rad/s
 let periodo = 0;           // T: tempo de uma oscilação completa, em s
 
 // Tempo da simulação, em segundos. Começa em zero e vai aumentando.
+// A seção de energia (energia.js) também usa este tempo.
 let tempo = 0;
-
-// A animação está rodando ou pausada?
-let rodando = true;
 
 // Maior amplitude permitida no controle deslizante. Usamos esse valor para
 // decidir a escala do desenho, assim ele nunca sai da tela.
@@ -92,33 +92,10 @@ function energiaMecanica() {
   return 0.5 * constanteMola * amplitude * amplitude;
 }
 
-// Converte radianos para graus: graus = radianos · 180 / π
-function radianosParaGraus(radianos) {
-  return (radianos * 180) / Math.PI;
-}
-
 
 /* =====================================================================
  *  3. LEITURA DOS CONTROLES DESLIZANTES
  * ===================================================================== */
-
-// O controle da fase vai de 0 a 8. Cada passo vale π/4 (45°).
-const NOMES_DAS_FASES = ["0", "π/4", "π/2", "3π/4", "π", "5π/4", "3π/2", "7π/4", "2π"];
-
-// Escreve um número com vírgula, como usamos no Brasil (0.25 → "0,25")
-function formatar(numero, casasDecimais = 2) {
-  return numero.toFixed(casasDecimais).replace(".", ",");
-}
-
-// Mostra um texto dentro do elemento da página que tem esse id
-function escrever(id, texto) {
-  document.getElementById(id).textContent = texto;
-}
-
-// Lê o valor de um controle deslizante como número
-function lerControle(id) {
-  return Number(document.getElementById(id).value);
-}
 
 function lerParametros() {
   // Lê os valores escolhidos pelo usuário
@@ -144,6 +121,8 @@ function lerParametros() {
   escrever("sf", formatar(1 / periodo) + " Hz");
   escrever("sv", formatar(amplitude * omega) + " m/s");
   escrever("sE", formatar(energiaMecanica(), 3) + " J");
+
+  atualizarTabela();
 }
 
 // Sempre que um controle mudar, lemos tudo de novo e recomeçamos do t = 0
@@ -154,66 +133,40 @@ for (const id of ["A", "m", "k", "phi"]) {
   });
 }
 
-// Botão de pausar / continuar
-const botao = document.getElementById("play");
-botao.addEventListener("click", () => {
-  rodando = !rodando;
-  botao.textContent = rodando ? "Pausar" : "Continuar";
-});
+const simuladorRodando = criarBotaoPausa("play");
 
 
 /* =====================================================================
- *  FERRAMENTAS DE DESENHO
+ *  4. TABELA DOS ÂNGULOS NOTÁVEIS
+ * =====================================================================
+ *  Calcula x, v e a nos instantes 0, T/4, T/2, 3T/4 e T.
+ *  A cada quarto de período, o ponto anda 90° no círculo.
+ */
+
+function atualizarTabela() {
+  const nomesDosInstantes = ["0", "T/4", "T/2", "3T/4", "T"];
+  let linhas = "<tr><th>t</th><th>t (s)</th><th>θ = ωt + φ</th><th>x (m)</th><th>v (m/s)</th><th>a (m/s²)</th></tr>";
+
+  for (let n = 0; n <= 4; n++) {
+    const t = (n * periodo) / 4;
+    const graus = anguloEntre0e360(radianosParaGraus(angulo(t)));
+    linhas +=
+      "<tr>" +
+      "<td>" + nomesDosInstantes[n] + "</td>" +
+      "<td>" + formatar(t, 3) + "</td>" +
+      "<td>" + graus.toFixed(0) + "°</td>" +
+      "<td>" + formatar(posicao(t), 3) + "</td>" +
+      "<td>" + formatar(velocidade(t), 3) + "</td>" +
+      "<td>" + formatar(aceleracao(t), 2) + "</td>" +
+      "</tr>";
+  }
+  document.getElementById("tabela").innerHTML = linhas;
+}
+
+
+/* =====================================================================
+ *  5. DESENHO DO CÍRCULO TRIGONOMÉTRICO
  * ===================================================================== */
-
-// Pega uma cor definida no CSS da página (assim o simulador acompanha o
-// tema claro ou escuro do sistema)
-function cor(nome) {
-  return getComputedStyle(document.documentElement).getPropertyValue(nome).trim();
-}
-
-// Prepara um <canvas> para desenhar: ajusta o tamanho, limpa a tela e
-// devolve o "pincel" (contexto), a largura e a altura.
-function prepararTela(id) {
-  const canvas = document.getElementById(id);
-  const largura = canvas.clientWidth;
-  const altura = Number(canvas.getAttribute("height"));
-
-  // Telas de celular têm mais pixels por ponto. Multiplicamos por esse
-  // fator para o desenho não ficar borrado.
-  const densidade = window.devicePixelRatio || 1;
-  canvas.width = Math.round(largura * densidade);
-  canvas.height = Math.round(altura * densidade);
-  canvas.style.height = altura + "px";
-
-  const pincel = canvas.getContext("2d");
-  pincel.scale(densidade, densidade);
-  return { pincel, largura, altura };
-}
-
-function linha(pincel, x1, y1, x2, y2, corDaLinha, espessura = 1, tracejada = false) {
-  pincel.strokeStyle = corDaLinha;
-  pincel.lineWidth = espessura;
-  pincel.setLineDash(tracejada ? [4, 4] : []);
-  pincel.beginPath();
-  pincel.moveTo(x1, y1);
-  pincel.lineTo(x2, y2);
-  pincel.stroke();
-  pincel.setLineDash([]);
-}
-
-function bolinha(pincel, x, y, raio, corDaBolinha) {
-  pincel.fillStyle = corDaBolinha;
-  pincel.beginPath();
-  pincel.arc(x, y, raio, 0, 2 * Math.PI);
-  pincel.fill();
-}
-
-function texto(pincel, conteudo, x, y, corDoTexto) {
-  pincel.fillStyle = corDoTexto;
-  pincel.font = "13px system-ui";
-  pincel.fillText(conteudo, x, y);
-}
 
 // Quantos pixels valem 1 metro no círculo e na mola. Usamos a mesma escala
 // nos dois desenhos para que o bloco fique exatamente embaixo da sombra.
@@ -221,11 +174,6 @@ function texto(pincel, conteudo, x, y, corDoTexto) {
 function pixelsPorMetro() {
   return (300 * 0.42) / AMPLITUDE_MAXIMA;
 }
-
-
-/* =====================================================================
- *  4. DESENHO DO CÍRCULO TRIGONOMÉTRICO
- * ===================================================================== */
 
 function desenharCirculo() {
   const { pincel, largura, altura } = prepararTela("circle");
@@ -264,16 +212,14 @@ function desenharCirculo() {
   bolinha(pincel, pontoX, pontoY, 7, cor("--purple"));
   bolinha(pincel, pontoX, centroY, 7, cor("--accent"));
 
-  // Mostra o ângulo entre 0° e 360°
-  let graus = radianosParaGraus(theta) % 360;
-  if (graus < 0) graus += 360;
+  const graus = anguloEntre0e360(radianosParaGraus(theta));
   texto(pincel, "θ = " + graus.toFixed(0) + "°", 8, 18, cor("--text"));
   texto(pincel, "x = A·cos θ = " + formatar(posicao(tempo), 3) + " m", 8, 36, cor("--text"));
 }
 
 
 /* =====================================================================
- *  5. DESENHO DO SISTEMA MASSA-MOLA
+ *  6. DESENHO DO SISTEMA MASSA-MOLA
  * ===================================================================== */
 
 function desenharMola() {
@@ -317,13 +263,13 @@ function desenharMola() {
 
 
 /* =====================================================================
- *  6. DESENHO DOS GRÁFICOS x(t), v(t) e a(t)
+ *  7. DESENHO DOS GRÁFICOS x(t), v(t) e a(t)
  * ===================================================================== */
 
 function desenharGraficos() {
   const { pincel, largura, altura } = prepararTela("graph");
 
-  const margemEsquerda = 44;
+  const margemEsquerda = 10;
   const margemDireita = 10;
   const larguraUtil = largura - margemEsquerda - margemDireita;
 
@@ -333,24 +279,9 @@ function desenharGraficos() {
 
   // Os três gráficos. "valorMaximo" define a escala vertical de cada um.
   const graficos = [
-    {
-      titulo: "x(t) = A·cos(ωt+φ)",
-      funcao: posicao,
-      valorMaximo: AMPLITUDE_MAXIMA,
-      corDaCurva: cor("--accent"),
-    },
-    {
-      titulo: "v(t) = −Aω·sen(ωt+φ)",
-      funcao: velocidade,
-      valorMaximo: amplitude * omega * 1.15,          // v máxima = A·ω
-      corDaCurva: cor("--orange"),
-    },
-    {
-      titulo: "a(t) = −Aω²·cos(ωt+φ)",
-      funcao: aceleracao,
-      valorMaximo: amplitude * omega * omega * 1.15,  // a máxima = A·ω²
-      corDaCurva: cor("--red"),
-    },
+    { titulo: "x(t) = A·cos(ωt+φ)", funcao: posicao, valorMaximo: AMPLITUDE_MAXIMA, corDaCurva: cor("--accent") },
+    { titulo: "v(t) = −Aω·sen(ωt+φ)", funcao: velocidade, valorMaximo: amplitude * omega * 1.15, corDaCurva: cor("--orange") },
+    { titulo: "a(t) = −Aω²·cos(ωt+φ)", funcao: aceleracao, valorMaximo: amplitude * omega * omega * 1.15, corDaCurva: cor("--red") },
   ];
 
   const alturaDeCadaGrafico = altura / graficos.length;
@@ -368,48 +299,26 @@ function desenharGraficos() {
     // Converte um valor (posição, velocidade...) em coordenada vertical
     const valorParaPixel = (valor) => linhaDoZero - (valor / grafico.valorMaximo) * metadeDaAltura;
 
-    // Eixo do tempo (valor zero)
+    // Eixo do tempo (valor zero) e linhas tracejadas em t = T e t = 2T
     linha(pincel, margemEsquerda, linhaDoZero, largura - margemDireita, linhaDoZero, cor("--grid"));
-
-    // Linhas tracejadas em t = T e t = 2T
     for (let n = 1; n <= 2; n++) {
       const x = tempoParaPixel(n * periodo);
       linha(pincel, x, topo, x, base, cor("--grid"), 1, true);
     }
 
-    texto(pincel, grafico.titulo, margemEsquerda, topo - 4, cor("--muted"));
+    texto(pincel, grafico.titulo, margemEsquerda, topo - 4, cor("--muted"), 12);
 
-    // Desenha a curva ligando 300 pontos, do t = 0 até o tempo atual
-    const numeroDePontos = 300;
-    pincel.strokeStyle = grafico.corDaCurva;
-    pincel.lineWidth = 2;
-    pincel.beginPath();
-    for (let i = 0; i <= numeroDePontos; i++) {
-      const t = (tempoNoGrafico * i) / numeroDePontos;
-      const x = tempoParaPixel(t);
-      const y = valorParaPixel(grafico.funcao(t));
-      if (i === 0) {
-        pincel.moveTo(x, y);
-      } else {
-        pincel.lineTo(x, y);
-      }
-    }
-    pincel.stroke();
+    // A curva vai do t = 0 até o tempo atual
+    curva(pincel, grafico.funcao, 0, tempoNoGrafico, tempoParaPixel, valorParaPixel, grafico.corDaCurva);
 
     // Bolinha marcando o instante atual
-    bolinha(
-      pincel,
-      tempoParaPixel(tempoNoGrafico),
-      valorParaPixel(grafico.funcao(tempoNoGrafico)),
-      4,
-      grafico.corDaCurva
-    );
+    bolinha(pincel, tempoParaPixel(tempoNoGrafico), valorParaPixel(grafico.funcao(tempoNoGrafico)), 4, grafico.corDaCurva);
   });
 }
 
 
 /* =====================================================================
- *  7. A ANIMAÇÃO
+ *  8. A ANIMAÇÃO
  * ===================================================================== */
 
 // O navegador chama a função "quadro" cerca de 60 vezes por segundo.
@@ -419,7 +328,7 @@ let instanteAnterior = null;
 function quadro(instanteAtual) {
   // instanteAtual vem em milissegundos. Calculamos quanto tempo passou
   // desde o quadro anterior e convertemos para segundos.
-  if (instanteAnterior !== null && rodando) {
+  if (instanteAnterior !== null && simuladorRodando()) {
     let passou = (instanteAtual - instanteAnterior) / 1000;
 
     // Se a aba ficou escondida, "passou" pode ser enorme. Limitamos o salto.
